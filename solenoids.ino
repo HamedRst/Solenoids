@@ -59,6 +59,26 @@ int VALVEarrsize = 0;
 int indcmd = -1;
 int i;
 
+void readAndPrintPorts() {
+    byte portAState = mcp.readRegister(MCP23017Register::GPIO_A);
+    byte portBState = mcp.readRegister(MCP23017Register::GPIO_B);
+
+    Serial.print("Port A: ");
+    for (int i = 0; i < 8; i++) {
+        Serial.print(bitRead(portAState, i));
+        Serial.print(" ");
+    }
+    Serial.println();
+
+    Serial.print("Port B: ");
+    for (int i = 0; i < 8; i++) {
+        Serial.print(bitRead(portBState, i));
+        Serial.print(" ");
+    }
+    Serial.println();
+}
+
+
 void setup()
 {
   Wire.begin();
@@ -82,7 +102,7 @@ void setup()
   applystate();
 
   // Initialize valves:
-  for (int i = 0; i<8; i++)
+  for (int i = 0; i<16; i++)
   {
     createnewValve(i, i+1, 0, 0, 50, 5000);
   }
@@ -121,7 +141,11 @@ void loop() {
   indcmd = inString.indexOf("VAL"); // Finds the VAL command start sequence (set valve)
   if(indcmd >= 0)
   {
+      Serial.print("Here\n");
       int i = findValve((int)inString.substring(indcmd+3,indcmd+6).toInt());
+      Serial.print("i=\n");
+      Serial.print(i);
+      Serial.print("\n");
 
       if(i>=0)
       {
@@ -255,9 +279,21 @@ void updatestate()
 
 void applystate()
 {
-  //printstate(mcpstate); // For debugging
-  mcp.writeRegister(MCP23017Register::GPIO_A, (mcpstate >> 8) & 0xFF);
-  mcp.writeRegister(MCP23017Register::GPIO_B, (mcpstate << 8) & 0xFF);
+  printstate(mcpstate); // For debugging
+    // Get the lower 8 bits (first 8 bits)
+  uint8_t lowByte = mcpstate & 0xFF;
+
+  // Get the upper 8 bits (next 8 bits)
+  uint8_t highByte = (mcpstate >> 8) & 0xFF;
+
+  // Serial.print("First 8 bits (Low Byte): 0x");
+  // Serial.println(lowByte, HEX);
+
+  // Serial.print("Second 8 bits (High Byte): 0x");
+  // Serial.println(highByte, HEX);
+  mcp.writeRegister(MCP23017Register::GPIO_A, lowByte);
+  mcp.writeRegister(MCP23017Register::GPIO_B, highByte);
+  readAndPrintPorts();
 }
 
 
@@ -298,6 +334,9 @@ void createnewValve(int pin, int channel, bool ison, bool PWMon, int PWMperc, lo
 
 int findValve(int channel)
 {
+  // Serial.print("Channel=\n");
+  // Serial.print(channel);
+  // Serial.print("\n");
     // Find the VALVE struct to update in the array. (Only one)
     for (int i = 0; i<VALVEarrsize; i++)
     {
